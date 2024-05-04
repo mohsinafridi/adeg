@@ -1,25 +1,20 @@
-import logo from './logo.svg';
-import './App.css';
+import Header from "./components/Header/Header";
+import Footer from "./components/Footer/Footer";
+import Body from "./components/Body/Body";
 
 function App() {
+  let items = ["Mohsin", "Azam", "Amal"];
+  let title = "Item List";
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+    <>
+      <div> <Header /> </div>
+      <div id="Body"> <Body items={items} title={title} /> </div>
+      <div> <Footer /> </div>
+    </>
   );
+
 }
 
 export default App;
+
+// https://www.youtube.com/watch?v=SqcY0GlETPk
