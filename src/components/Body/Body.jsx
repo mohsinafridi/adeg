@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 
 function Body({ items, title }) {
-  debugger;
   // let items = ["Mohsin", "Azam", "Amal"];
 
   // const handleClick = (event) => console.log(event);
@@ -10,22 +9,24 @@ function Body({ items, title }) {
   const [selectedIndex, setSelectedIndex] = useState(-1);
   return (
     <>
-      <h1>title</h1>
-      <ul className="list-group">
-        {items.map((item, index) => (
-          <li
-            className={
-              selectedIndex === index
-                ? "list-group-item active"
-                : "list-group-item"
-            }
-            key={item}
-            onClick={() => setSelectedIndex(index)}
-          >
-            {item}
-          </li>
-        ))}
-      </ul>
+      <div className="body-page">
+        <h1>title</h1>
+        <ul className="list-group">
+          {items.map((item, index) => (
+            <li
+              className={
+                selectedIndex === index
+                  ? "list-group-item active"
+                  : "list-group-item"
+              }
+              key={item}
+              onClick={() => setSelectedIndex(index)}
+            >
+              {item}
+            </li>
+          ))}
+        </ul>
+      </div>
     </>
   );
 }
