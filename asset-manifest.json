@@ -1,15 +1,15 @@
 {
   "files": {
     "main.css": "/adeg/static/css/main.9a6d1f18.css",
-    "main.js": "/adeg/static/js/main.e3bfd530.js",
+    "main.js": "/adeg/static/js/main.c36001d6.js",
     "static/js/453.38fdc2ba.chunk.js": "/adeg/static/js/453.38fdc2ba.chunk.js",
     "index.html": "/adeg/index.html",
     "main.9a6d1f18.css.map": "/adeg/static/css/main.9a6d1f18.css.map",
-    "main.e3bfd530.js.map": "/adeg/static/js/main.e3bfd530.js.map",
+    "main.c36001d6.js.map": "/adeg/static/js/main.c36001d6.js.map",
     "453.38fdc2ba.chunk.js.map": "/adeg/static/js/453.38fdc2ba.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.9a6d1f18.css",
-    "static/js/main.e3bfd530.js"
+    "static/js/main.c36001d6.js"
   ]
 }
