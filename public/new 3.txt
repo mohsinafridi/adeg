@@ -1,0 +1,228 @@
+
+using GraphQL.Types;
+using Sitecore;
+using Sitecore.ContentSearch;
+using Sitecore.ContentSearch.Linq;
+using Sitecore.ContentSearch.Linq.Utilities;
+using Sitecore.ContentSearch.SearchTypes;
+using Sitecore.ContentSearch.Utilities;
+using Sitecore.Data;
+using Sitecore.Data.Managers;
+using Sitecore.Globalization;
+using Sitecore.Services.GraphQL.Content.GraphTypes.ContentSearch;
+using Sitecore.Services.GraphQL.GraphTypes.Connections;
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
+using System.Web;
+
+namespace ATLP.Foundation.CustomGraphQl.CustomQueries
+{
+    public class CustomSearchQuery : Sitecore.Services.GraphQL.Content.Queries.SearchQuery
+    {
+        public CustomSearchQuery()
+        {
+            Arguments.Add(new QueryArgument<BooleanGraphType>()
+            {
+                Name = "dateFrom",
+                Description = "Is Sort by Date/StartDate field",
+                DefaultValue = false
+            });
+            Arguments.Add(new QueryArgument<StringGraphType>()
+            {
+                Name = "sortBy",
+                Description = "Sort by a field"
+            });
+
+            Arguments.Add(new QueryArgument<BooleanGraphType>()
+            {
+                Name = "sortDesc",
+                Description = "Specify Desc vs ascending",
+                DefaultValue = false
+            });
+
+            Arguments.Add(new QueryArgument<BooleanGraphType>()
+            {
+                Name = "useOr",
+                Description = "Use Or Condition",
+                DefaultValue = false
+            });
+            Arguments.Add(new QueryArgument<StringGraphType>()
+            {
+                Name = "startDate",
+                Description = "Is Sort by Date/StartDate field"
+            });
+            //Arguments.Add(new QueryArgument<StringGraphType>()
+            //{
+            //    Name = "EndDate",
+            //    Description = "Is Sort by Date/End Date field"
+            //});
+        }
+
+        protected override ContentSearchResults Resolve(ResolveFieldContext context)
+        {
+            var inputPathOrIdOrShortId = context.GetArgument<string>("rootItem");
+            ID rootId = null;
+            if (!string.IsNullOrWhiteSpace(inputPathOrIdOrShortId) && Sitecore.Services.GraphQL.Content.GraphTypes.IdHelper.TryResolveItem(this.Database, inputPathOrIdOrShortId, out var result1))
+            {
+                rootId = result1.ID;
+            }
+
+            if (!Language.TryParse(context.GetArgument<string>("language") ?? Sitecore.Context.Language.Name ?? LanguageManager.DefaultLanguage.Name, out var result2))
+            {
+                result2 = null;
+            }
+
+            var keywordArg = context.GetArgument<string>("keyword");
+
+            var nullable1 = context.GetArgument("version", new bool?());
+            var flag = !nullable1.HasValue || nullable1.GetValueOrDefault();
+            var indexName = context.GetArgument<string>("index");
+            var sortBy = context.GetArgument<string>("sortBy");
+            bool dateFrom = context.GetArgument<bool>("dateFrom");
+            var dateTo = context.GetArgument<string>("dateTo");
+            bool? sortDesc = context.GetArgument<bool>("sortDesc");
+            bool? useOr = context.GetArgument<bool>("useOr");
+
+            var dateStart = context.GetArgument<string>("startDate");
+
+
+            System.Threading.Thread.CurrentThread.CurrentCulture = new CultureInfo("en-US");
+            
+            
+            
+            // DateTime? dateEnd = DateTime.ParseExact(context.GetArgument<string>("dateTo"), "MM/dd/yyyy", new CultureInfo("en-US"));
+
+
+
+            var fieldEquals = context.GetArgument("fieldsEqual", new object[0]).OfType<Dictionary<string, object>>();
+            var facets = context.GetArgument<IEnumerable<string>>("facetOn") ?? new string[0];
+
+            SitecoreIndexableItem rootItem = null;
+
+            if (rootId != (ID)null)
+            {
+                rootItem = Sitecore.Context.Database.GetItem(rootId);
+            }
+
+            if (rootItem == null)
+            {
+                rootItem = Sitecore.Context.Database.GetRootItem();
+            }
+
+            // user can force the index by passing in an index name
+            // if they don't force an index, try to get determine the index from the rootitem
+            // if there is no root item, then just use the default Sitecore indexes and pray
+            var index = !string.IsNullOrWhiteSpace(indexName)
+                ? ContentSearchManager.GetIndex(indexName)
+                : rootItem != null
+                    ? ContentSearchManager.GetIndex(rootItem)
+                    : ContentSearchManager.GetIndex($"sitecore_{Database.Name.ToLower()}_index");
+
+            using (var searchContext = index.CreateSearchContext())
+            {
+                var queryable = searchContext.GetQueryable<ContentSearchResult>();
+                if (rootId != (ID)null)
+                    queryable = queryable.Where(result => result.AncestorIDs.Contains(rootId));
+                if (!string.IsNullOrWhiteSpace(keywordArg))
+                    queryable = queryable.Where(result => result.Content.Contains(keywordArg));
+                if (result2 != null)
+                {
+                    var resultLanguage = result2.Name;
+                    queryable = queryable.Where(result => result.Language == resultLanguage);
+                }
+
+                if (flag)
+                    queryable = queryable.Where(result => result.IsLatestVersion);
+
+                var predicateBuilder = PredicateBuilder.False<ContentSearchResult>();
+                var modifiedTagPredicateBuilder = PredicateBuilder.False<ContentSearchResult>();
+
+                // DateUtil
+
+                var originalTagPredicateBuilder = modifiedTagPredicateBuilder;
+                if (useOr.HasValue && useOr == true)
+                {
+                    foreach (var dictionary in fieldEquals)
+                    {
+                        var name = dictionary["name"].ToString();
+                        var value = dictionary["value"].ToString();
+                        if (name.Equals("_templatename"))
+                        {
+                            predicateBuilder = predicateBuilder.Or(result => result[name].Equals(value));
+                        }
+                        else if (name.Equals("workingTag") || name.Equals("lookTag") || name.Equals("throughTag"))
+                        {
+                            modifiedTagPredicateBuilder = modifiedTagPredicateBuilder.Or(result => result[name].Equals(value));
+                        }
+                        else
+                        {
+                            if (!string.IsNullOrEmpty(value))
+                                queryable = queryable.Where(result => result[name].Equals(value));
+                        }
+                    }
+                    if (originalTagPredicateBuilder == modifiedTagPredicateBuilder)
+                    {
+                        queryable = queryable.Where(predicateBuilder);
+                    }
+                    else
+                    {
+                        queryable = queryable.Where(predicateBuilder).Where(modifiedTagPredicateBuilder);
+                    }
+
+                }
+                else
+                {
+                    foreach (var dictionary in fieldEquals)
+                    {
+                        var name = dictionary["name"].ToString();
+                        var value = dictionary["value"].ToString();
+                        queryable = queryable.Where(result => result[name].Equals(value));
+                    }
+                }
+
+                foreach (var str in facets)
+                {
+                    var facet = str;
+                    queryable = queryable.FacetOn(result => result[facet]);
+                }
+
+                var nullable2 = context.GetArgument("after", new int?());
+
+                if (!string.IsNullOrEmpty(sortBy))
+                {
+                    if (sortDesc.HasValue && sortDesc == true)
+                    {
+                        queryable = queryable.OrderByDescending(result => result[sortBy]);
+                    }
+                    else
+                    {
+                        queryable = queryable.OrderBy(result => result[sortBy]);
+                    }
+                }
+
+                if (dateFrom == true)
+                {
+                    queryable = queryable.Where(p => ((DateTime)p[(ObjectIndexerKey)sortBy]) >= DateTime.Now);
+                }
+
+                if (!string.IsNullOrEmpty(dateStart))
+                {
+                    DateTime startDate = DateTime.ParseExact(dateStart, "MM/dd/yyyy", new CultureInfo("en-US"));
+                    DateTime endDate = startDate.Date.AddDays(1);
+                    queryable = queryable.Where(p => startDate >= ((DateTime)p[(ObjectIndexerKey)sortBy]) && ((DateTime)p[(ObjectIndexerKey)sortBy]) <= endDate);               
+                    }
+                
+                var results = new ContentSearchResults(
+                queryable.ApplyEnumerableConnectionArguments(context).GetResults<ContentSearchResult>(),
+                nullable2 ?? 0);
+
+                return results;
+            }
+        }
+    }
+
+
+
+}
